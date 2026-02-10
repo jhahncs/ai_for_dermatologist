@@ -1,0 +1,68 @@
+.model-selector {
+  margin-bottom: 2rem;
+}
+
+.model-selector h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.model-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.model-option {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+}
+
+.model-option:hover:not(.disabled) {
+  border-color: #4CAF50;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.model-option.selected {
+  border-color: #4CAF50;
+  background: #f0f8f0;
+}
+
+.model-option.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.model-option input[type="radio"] {
+  margin-right: 0.75rem;
+  margin-top: 0.25rem;
+  cursor: pointer;
+}
+
+.model-option.disabled input[type="radio"] {
+  cursor: not-allowed;
+}
+
+.model-info {
+  flex: 1;
+}
+
+.model-name {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+  color: #333;
+}
+
+.model-description {
+  font-size: 0.875rem;
+  color: #666;
+  line-height: 1.4;
+}
