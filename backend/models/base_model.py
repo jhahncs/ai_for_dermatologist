@@ -56,12 +56,30 @@ class BaseModel(ABC):
         if patient_ids is None:
             patient_ids = [f"patient_{i+1}" for i in range(len(predictions))]
 
-        # Format results
+        # Calculate median of first gene for endotype classification
+        # Use first column (gene) to classify endotypes
+        if len(df.columns) > 0:
+            gene_median = df.iloc[:, 0].median()
+        else:
+            gene_median = 0
+
+        # Format results with endotype classification
         results = []
-        for pid, pred, conf in zip(patient_ids, predictions, confidences):
+        for idx, (pid, pred, conf) in enumerate(zip(patient_ids, predictions, confidences)):
+            if pred == 1:  # Positive prediction
+                # Classify into Endotype 1 or 2 based on gene expression
+                gene_value = df.iloc[idx, 0] if len(df.columns) > 0 else 0
+                if gene_value >= gene_median:
+                    endotype = "endotype_1"
+                else:
+                    endotype = "endotype_2"
+            else:
+                endotype = "negative"
+
             results.append({
                 "patient_id": pid,
                 "prediction": "yes" if pred == 1 else "no",
+                "endotype": endotype,
                 "confidence": round(float(conf), 2)
             })
 

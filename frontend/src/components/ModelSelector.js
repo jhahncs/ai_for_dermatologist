@@ -8,21 +8,18 @@ import './ModelSelector.css';
 
 const MODEL_INFO = {
   svm: {
-    name: 'Support Vector Machine (SVM)',
-    description: 'Uses kernel methods to find optimal decision boundaries between classes'
+    name: 'Model 1',
+    description: 'SVM only'
   },
   neural_network: {
-    name: 'Neural Network',
-    description: 'Deep learning model that learns complex patterns through multiple layers'
+    name: 'Model 2',
+    description: 'LR + XGBoost'
   },
   random_forest: {
-    name: 'Random Forest',
-    description: 'Ensemble model combining multiple decision trees for robust predictions'
-  },
-  logistic_regression: {
-    name: 'Logistic Regression',
-    description: 'Linear model that predicts probability of class membership'
+    name: 'Model 3',
+    description: 'Graph Neural Networks'
   }
+
 };
 
 function ModelSelector({ selectedModel, onModelChange, disabled }) {

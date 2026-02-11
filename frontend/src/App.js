@@ -7,9 +7,10 @@ import React, { useState } from 'react';
 import './App.css';
 import ModelSelector from './components/ModelSelector';
 import FileUpload from './components/FileUpload';
+import PatientSelectionTable from './components/PatientSelectionTable';
 import ResultsDisplay from './components/ResultsDisplay';
 import ErrorMessage from './components/ErrorMessage';
-import { submitPrediction } from './services/api';
+import { preprocessData, submitPredictionWithSelection } from './services/api';
 
 function App() {
   const [selectedModel, setSelectedModel] = useState('svm');
@@ -18,6 +19,12 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // New state for 2-step workflow
+  const [preprocessedData, setPreprocessedData] = useState(null);
+  const [cacheKey, setCacheKey] = useState(null);
+  const [viewMode, setViewMode] = useState('upload'); // 'upload' | 'selection' | 'results'
+
+  // Handle preview data button click
   const handlePredict = async () => {
     if (!file) {
       setError('Please select a CSV file');
@@ -26,21 +33,66 @@ function App() {
 
     setLoading(true);
     setError(null);
-    setPredictions(null);
 
     try {
-      const result = await submitPrediction(file, selectedModel);
-      setPredictions(result);
+      const result = await preprocessData(file);
+      setPreprocessedData(result);
+      setCacheKey(result.cache_key);
+      setViewMode('selection');
     } catch (err) {
-      setError(err.message || 'An error occurred during prediction');
+      setError(err.message || 'An error occurred during preprocessing');
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle run prediction with selected patients
+  const handleRunPrediction = async (selectedPatientIds) => {
+    if (!cacheKey) {
+      setError('Cache expired. Please re-upload the file.');
+      return;
+    }
+
+    if (selectedPatientIds.length === 0) {
+      setError('Please select at least one patient');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await submitPredictionWithSelection(cacheKey, selectedModel, selectedPatientIds);
+      setPredictions(result);
+      setViewMode('results');
+    } catch (err) {
+      setError(err.message || 'An error occurred during prediction');
+      // If cache expired, go back to upload view
+      if (err.message.includes('Cache expired') || err.message.includes('cache')) {
+        setViewMode('upload');
+        setPreprocessedData(null);
+        setCacheKey(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle back to upload view
+  const handleBack = () => {
+    setViewMode('upload');
+    setPreprocessedData(null);
+    setCacheKey(null);
+    setPredictions(null);
+    setError(null);
+  };
+
   const handleReset = () => {
     setFile(null);
     setPredictions(null);
+    setPreprocessedData(null);
+    setCacheKey(null);
+    setViewMode('upload');
     setError(null);
   };
 
@@ -64,36 +116,71 @@ function App() {
             />
           )}
 
-          <div className="input-section">
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-              disabled={loading}
-            />
-
-            <FileUpload
-              onFileSelect={setFile}
-              disabled={loading}
-              selectedFile={file}
-              onPredict={handlePredict}
-              onReset={handleReset}
-            />
-          </div>
-
           {loading && (
             <div className="loading">
               <div className="spinner"></div>
-              <p>Processing predictions...</p>
+              <p>
+                {viewMode === 'upload' ? 'Loading data...' : 'Running prediction...'}
+              </p>
             </div>
           )}
 
-          {predictions && !loading && (
-            <ResultsDisplay
-              predictions={predictions.predictions}
-              modelType={predictions.model_type}
-              patientCount={predictions.patient_count}
-              processingTime={predictions.processing_time_ms}
+          {viewMode === 'upload' && !loading && (
+            <div className="input-section">
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+                disabled={loading}
+              />
+
+              <FileUpload
+                onFileSelect={setFile}
+                disabled={loading}
+                selectedFile={file}
+                onPredict={handlePredict}
+                onReset={handleReset}
+              />
+            </div>
+          )}
+
+          {viewMode === 'selection' && !loading && preprocessedData && (
+            <PatientSelectionTable
+              data={preprocessedData}
+              cacheKey={cacheKey}
+              modelType={selectedModel}
+              onRunPrediction={handleRunPrediction}
+              onBack={handleBack}
             />
+          )}
+
+          {viewMode === 'results' && !loading && predictions && (
+            <>
+              <ResultsDisplay
+                predictions={predictions.predictions}
+                modelType={predictions.model_type}
+                patientCount={predictions.patient_count}
+                processingTime={predictions.processing_time_ms}
+                topGenes={predictions.top_variant_genes}
+              />
+              <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                <button
+                  className="back-button"
+                  onClick={handleBack}
+                  style={{
+                    padding: '12px 30px',
+                    fontSize: '1em',
+                    fontWeight: '600',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    backgroundColor: '#95a5a6',
+                    color: 'white',
+                  }}
+                >
+                  New Prediction
+                </button>
+              </div>
+            </>
           )}
         </div>
       </main>

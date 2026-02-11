@@ -136,7 +136,7 @@ function FileUpload({ onFileSelect, disabled, selectedFile, onPredict, onReset }
             onClick={onPredict}
             disabled={disabled}
           >
-            {disabled ? 'Processing...' : 'Predict Atopic Dermatitis'}
+            {disabled ? 'Loading...' : 'Preview Data'}
           </button>
         </div>
       )}

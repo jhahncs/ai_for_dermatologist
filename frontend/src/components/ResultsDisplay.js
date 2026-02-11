@@ -1,15 +1,45 @@
 /**
  * ResultsDisplay Component
- * Displays prediction results in a table
+ * Displays prediction results in a table and gene expression visualization
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './ResultsDisplay.css';
+import GeneBoxPlot from './GeneBoxPlot';
+import { getBaselineData } from '../services/api';
 
-function ResultsDisplay({ predictions, modelType, patientCount, processingTime }) {
+function ResultsDisplay({ predictions, modelType, patientCount, processingTime, topGenes }) {
   const [sortColumn, setSortColumn] = useState('patient_id');
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterPrediction, setFilterPrediction] = useState('all');
+  const [baselineData, setBaselineData] = useState(null);
+  const [baselineLoading, setBaselineLoading] = useState(false);
+  const [baselineError, setBaselineError] = useState(null);
+
+  // Fetch baseline data when component mounts
+  useEffect(() => {
+    const fetchBaseline = async () => {
+      // Only fetch if we have top genes for visualization
+      if (!topGenes || topGenes.length === 0) {
+        return;
+      }
+
+      setBaselineLoading(true);
+      setBaselineError(null);
+
+      try {
+        const data = await getBaselineData();
+        setBaselineData(data);
+      } catch (err) {
+        console.error('Failed to fetch baseline data:', err);
+        setBaselineError(err.message);
+      } finally {
+        setBaselineLoading(false);
+      }
+    };
+
+    fetchBaseline();
+  }, [topGenes]);
 
   if (!predictions || predictions.length === 0) {
     return null;
@@ -18,6 +48,8 @@ function ResultsDisplay({ predictions, modelType, patientCount, processingTime }
   // Calculate summary statistics
   const yesCount = predictions.filter(p => p.prediction === 'yes').length;
   const noCount = predictions.filter(p => p.prediction === 'no').length;
+  const endotype1Count = predictions.filter(p => p.endotype === 'endotype_1').length;
+  const endotype2Count = predictions.filter(p => p.endotype === 'endotype_2').length;
   const avgConfidence = (predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length).toFixed(2);
 
   // Filter predictions
@@ -93,11 +125,15 @@ function ResultsDisplay({ predictions, modelType, patientCount, processingTime }
           <div className="summary-value">{patientCount}</div>
         </div>
         <div className="summary-item">
-          <div className="summary-label">Positive (Yes)</div>
-          <div className="summary-value positive">{yesCount}</div>
+          <div className="summary-label">Endotype 1</div>
+          <div className="summary-value" style={{ color: '#e74c3c' }}>{endotype1Count}</div>
         </div>
         <div className="summary-item">
-          <div className="summary-label">Negative (No)</div>
+          <div className="summary-label">Endotype 2</div>
+          <div className="summary-value" style={{ color: '#f39c12' }}>{endotype2Count}</div>
+        </div>
+        <div className="summary-item">
+          <div className="summary-label">Negative</div>
           <div className="summary-value negative">{noCount}</div>
         </div>
         <div className="summary-item">
@@ -134,9 +170,9 @@ function ResultsDisplay({ predictions, modelType, patientCount, processingTime }
                   <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
                 )}
               </th>
-              <th onClick={() => handleSort('prediction')} className="sortable">
-                Prediction
-                {sortColumn === 'prediction' && (
+              <th onClick={() => handleSort('endotype')} className="sortable">
+                Classification
+                {sortColumn === 'endotype' && (
                   <span className="sort-indicator">{sortDirection === 'asc' ? ' ▲' : ' ▼'}</span>
                 )}
               </th>
@@ -153,8 +189,14 @@ function ResultsDisplay({ predictions, modelType, patientCount, processingTime }
               <tr key={index}>
                 <td>{prediction.patient_id}</td>
                 <td>
-                  <span className={`prediction-badge ${prediction.prediction}`}>
-                    {prediction.prediction === 'yes' ? 'Positive' : 'Negative'}
+                  <span className={`prediction-badge ${
+                    prediction.endotype === 'endotype_1' ? 'endotype1' :
+                    prediction.endotype === 'endotype_2' ? 'endotype2' :
+                    'negative'
+                  }`}>
+                    {prediction.endotype === 'endotype_1' ? 'Endotype 1' :
+                     prediction.endotype === 'endotype_2' ? 'Endotype 2' :
+                     'Negative'}
                   </span>
                 </td>
                 <td>{(prediction.confidence * 100).toFixed(0)}%</td>
@@ -163,6 +205,39 @@ function ResultsDisplay({ predictions, modelType, patientCount, processingTime }
           </tbody>
         </table>
       </div>
+
+      {/* Gene Expression Visualization Section */}
+      {topGenes && topGenes.length > 0 && (
+        <div className="visualization-section">
+          <h2 className="visualization-header">Gene Expression Comparison</h2>
+          <p className="visualization-subtitle">
+            Comparing top {topGenes.length} variant genes between selected patients and normal baseline
+          </p>
+
+          {baselineLoading && (
+            <div className="baseline-loading">
+              <div className="spinner"></div>
+              <p>Loading baseline data...</p>
+            </div>
+          )}
+
+          {baselineError && (
+            <div className="baseline-error">
+              <p>⚠️ Unable to load baseline data: {baselineError}</p>
+              <p>Visualization is unavailable.</p>
+            </div>
+          )}
+
+          {!baselineLoading && !baselineError && baselineData && (
+            <GeneBoxPlot
+              selectedPatientsData={predictions}
+              baselineData={baselineData}
+              topGenes={topGenes}
+              title={`Top ${topGenes.length} Variant Genes: Selected Patients vs Normal Baseline`}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
